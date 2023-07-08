@@ -1,0 +1,222 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jul  7 09:07:28 2023
+
+@author: swank
+"""
+
+### Instruction:
+'''Income Qualification
+Course-end Project 2
+
+DESCRIPTION
+
+Identify the level of income qualification needed for the families in Latin America.
+
+Problem Statement Scenario:
+Many social programs have a hard time ensuring that the right people are given enough aid. It’s tricky when a program focuses on the poorest segment of the population. This segment of the population can’t provide the necessary income and expense records to prove that they qualify.
+
+In Latin America, a popular method called Proxy Means Test (PMT) uses an algorithm to verify income qualification. With PMT, agencies use a model that considers a family’s observable household attributes like the material of their walls and ceiling or the assets found in their homes to
+classify them and predict their level of need.
+
+While this is an improvement, accuracy remains a problem as the region’s population grows and poverty declines.
+
+The Inter-American Development Bank (IDB)believes that new methods beyond traditional econometrics, based on a dataset of Costa Rican household characteristics, might help improve PMT’s performance.
+Following actions should be performed:
+
+Identify the output variable.
+Understand the type of data.
+Check if there are any biases in your dataset.
+Check whether all members of the house have the same poverty level.
+Check if there is a house without a family head.
+Set poverty level of the members and the head of the house within a family.
+Count how many null values are existing in columns.
+Remove null value rows of the target variable.
+Predict the accuracy using random forest classifier.
+Check the accuracy using random forest with cross validation.'''
+
+import numpy as np
+import pandas as pd
+
+import matplotlib.pyplot as plt
+#%matplotlib inline
+import seaborn as sns
+sns.set()
+
+train_dataset = pd.read_csv("C:\\Users\\swank\\OneDrive\\Desktop\\DSc3-ML\\IncomeQual\\train.csv")
+test_dataset = pd.read_csv("C:\\Users\\swank\\OneDrive\\Desktop\\DSc3-ML\\IncomeQual\\test.csv")
+
+train_dataset.head()
+
+test_dataset.head()
+
+#so far only displays test
+#train zero-index ID ends with '684
+
+#cleaning up the data
+train_dataset.info(143)
+#core info by frequency
+train_dataset.info()
+# drops full range of columns and their datatypes
+
+#is_null
+train_dataset.isna().sum()/len(train_dataset)*100
+train_dataset.isna().sum()  #prints sum of nulls
+#don't need to do this
+#(prints top)
+train_dataset.drop('Id',axis=1)
+train_dataset.drop('v2a1',axis=1)
+
+#lambda for column nul
+'''I can't write this lambda'''
+#train_dataset.isna().any()[lambda x: x]
+### look into changing the data type
+
+train_dataset['v18q1'].isna().sum()
+#train_dataset['v2a1'].isna().sum()
+
+#bottomprint
+"""This just doesn't seem necessary to me"""
+#train_dataset.tail(10)
+
+"""This will first drop the `v18q1` column from `train_dataset`. Then,
+ it calculates the percentage of missing values in the `rez_esc` column
+ using the `isna()` method to get a boolean mask of the NaN values,
+ `sum()` method to get the number of missing values,
+ and dividing it by the total length of `train_dataset`. 
+Finally, it prints the percentage of missing values in the console."""
+
+train_dataset.drop('v18q1',axis=1,inplace=True)
+train_dataset['rez_esc'].isna().sum()/len(train_dataset)*100
+
+
+train_dataset.drop('rez_esc',axis=1,inplace=True)
+train_dataset['meaneduc'].isna().sum()  #taking sample last names
+
+### I DONT NEED THIS DATA TYPE
+train_dataset['meaneduc'].dtype
+
+#seaborn plot
+sns.kdeplot(train_dataset['meaneduc'])
+#kdeplot.show()
+### had to run this cell twice in Spyder, possible bad reference
+
+#full dataset plot (lol <3)
+sns.scatterplot(x='age', y='meaneduc', data=train_dataset)
+plt.show()
+
+train_dataset['meaneduc'].fillna(train_dataset['meaneduc'].mean,inplace=True)
+#fillnuls  (Mean Education)
+train_dataset['meaneduc'].isna().sum()
+
+#train_dataset.isna().any()
+### booleans of trained dataset NOT NEEDED
+
+train_dataset.groupby('Target').size()/len(train_dataset)*100
+#same graph, means the target is on point
+
+train_dataset.describe()
+#info()
+"""Point that can be gleaned from the dataset: 95% of households have a Fridge"""
+
+train_dataset.columns.isna().sum()
+train_dataset.select_dtypes('object').head(100)
+#dependency in range of 1/3rds
+train_dataset.select_dtypes('object').isna().sum()
+#test for successful imputation
+train_dataset['Target'].isnull().any().any()
+#false for no empties [no nulls]
+target_count = train_dataset['Target'].value_counts()
+target_count.plot(kind="bar", title="Target count")
+#can't write it out 'Target count: '
+### but it gave me the desired plt
+
+#switch to testdata
+test_dataset.head(11)
+test_dataset.isna().sum()/len(test_dataset)*100
+
+test_dataset.drop('Id',axis=1,inplace=True)
+test_dataset.drop('v2a1',axis=1,inplace=True)
+#Another Lambda I CANT write
+#yes, I stole this Lambda function
+test_dataset.isna().any()[lambda x: x]
+#frequency of nulls
+test_dataset['v18q1'].isna().sum()/len(test_dataset)
+###SAME ALGOES AS USED ABOVE
+test_dataset['rez_esc'].isna().sum()/len(test_dataset)*100
+test_dataset.drop('rez_esc',axis=1,inplace=True)
+test_dataset['meaneduc'].isna().sum()
+test_dataset.isna().any()
+#train_dataset.shape
+# ^ comes in info
+
+#test_dataset.shape
+# not printing this shite, it's useless
+
+test_dataset.drop('SQBmeaned',axis=1,inplace=True)
+
+train_dataset.drop('SQBmeaned',axis=1,inplace=True)
+
+#I think it's fair to say we are without bias as objective observers at this point
+
+mapping={'yes':1,'no':0}
+
+for df in [train_dataset, test_dataset]:
+    df['dependency'] =df['dependency'].replace(mapping).astype(np.float64)
+    df['edjefe'] =df['edjefe'].replace(mapping).astype(np.float64)
+    df['edjefa'] =df['edjefa'].replace(mapping).astype(np.float64)
+    
+train_dataset[['dependency','edjefe','edjefa']].describe()
+
+train_dataset.select_dtypes('object').head(100)
+
+households_head = train_dataset.groupby('idhogar')['parentesco1'].sum()
+households_no_head = train_dataset.loc[train_dataset['idhogar'].isin(households_head[households_head == 0].index), :]
+print('There are {} households without a head.'.format(households_no_head['idhogar'].nunique()))
+test_dataset.drop('idhogar',axis=1,inplace=True)
+test_dataset.drop('meaneduc',axis=1,inplace=True)
+train_dataset.drop('idhogar',axis=1,inplace=True)
+train_dataset.drop('meaneduc',axis=1,inplace=True)
+
+X=train_dataset.iloc[:,0:-1]
+y=train_dataset.iloc[:,-1]
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, random_state=42)
+
+from sklearn.ensemble import RandomForestClassifier
+
+rf = RandomForestClassifier() #Predicting and checking accuracy
+rf.fit(X_train, y_train)
+
+pred = rf.predict(X_test)
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+accuracy_score(y_test, pred)
+
+accuracy_score(y_train, rf.predict(X_train))
+rf.feature_importances_
+
+from sklearn.model_selection import KFold,cross_val_score
+seed=7
+kfold=KFold(n_splits=5,random_state=seed,shuffle=True)
+
+rmclassifier=RandomForestClassifier(random_state=10,n_jobs = -1)
+print(cross_val_score(rmclassifier,X,y,cv=kfold,scoring='accuracy'))
+results=cross_val_score(rmclassifier,X,y,cv=kfold,scoring='accuracy')
+print(results.mean()*100)
+
+# DEBUG THIS ###
+
+num_trees= 100
+
+rmclassifier=RandomForestClassifier(n_estimators=100, random_state=10,n_jobs = -1)
+print(cross_val_score(rmclassifier,X,y,cv=kfold,scoring='accuracy'))
+results=cross_val_score(rmclassifier,X,y,cv=kfold,scoring='accuracy')
+print(results.mean()*100)
+
+rmclassifier.fit(X,y) #random forest classifier
+y_predict=rmclassifier.predict(X_test)
+y_predict
+#this of course can't be debugged as it's simplicity is without bounds
+accuracy_score(y_test, pred)
